@@ -107,7 +107,6 @@ def generate():
     pro_users = [u.lower() for u in load_pro_users()]
     plan = "pro" if email and email in pro_users else "free"
 
-    # Free users are always restricted
     restriction_mode = requested_restriction_mode
     if plan != "pro":
         restriction_mode = True
@@ -143,6 +142,16 @@ def generate():
         response.raise_for_status()
         result = response.json()
         reply = result["choices"][0]["message"]["content"]
+    except requests.HTTPError as e:
+        error_text = ""
+        try:
+            error_text = e.response.text
+        except Exception:
+            pass
+        return jsonify({
+            "error": "Generation failed",
+            "details": error_text
+        }), 500
     except Exception as e:
         return jsonify({"error": f"Generation failed: {e}"}), 500
 
