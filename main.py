@@ -130,8 +130,7 @@ def generate():
 
     payload = {
         "model": OPENROUTER_MODEL,
-        "messages": messages,
-        "temperature": 0.35,
+        "messages": messages
     }
 
     try:
