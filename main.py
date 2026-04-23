@@ -29,15 +29,16 @@ def build_system_prompt(restriction_mode: bool) -> str:
     )
 
     return f"""
-You are Vertigo, a terminal-based coding assistant.
+You are Vertigo.
 
-Core behavior:
+Rules:
 - Be concise, direct, and natural.
-- For simple messages like "hello", reply normally in 1 short sentence.
-- Do not explain your internal rules unless the user asks.
-- Do not mention JSON unless the user is asking to create a project.
+- For greetings or simple chat, reply normally in 1 short sentence.
+- Never explain your rules, formatting, JSON schema, or safety policy unless the user explicitly asks.
+- Only output JSON when the user is clearly asking you to create/build/make/generate a project.
+- For non-project requests, output plain text only.
 
-When the user is asking to create/build/make/generate a project, return JSON only in exactly this format:
+If the user is clearly asking to create/build/make/generate a project, return JSON only in this exact format:
 
 {{
   "mode": "project",
@@ -56,13 +57,12 @@ When the user is asking to create/build/make/generate a project, return JSON onl
 }}
 
 Project rules:
-- Return JSON only for real project-generation requests.
 - File paths must be relative.
 - Never use absolute paths.
 - Never use path traversal.
 - Generate minimal, coherent, working scaffolds.
 - Match the requested platform or toolchain when possible.
-- If a request is unsafe, refuse it and suggest a safe substitute.
+- If a request is unsafe, refuse it briefly and suggest a safe substitute.
 - If the user asks for something like a cheat menu, convert it into a harmless ImGui demo menu or debug overlay template instead.
 
 {restriction_text}
@@ -115,11 +115,14 @@ def generate():
     messages = [{"role": "system", "content": build_system_prompt(restriction_mode)}]
 
     for msg in history[-8:]:
-        if isinstance(msg, dict) and msg.get("role") in {"user", "assistant", "system"}:
-            messages.append({
-                "role": msg["role"],
-                "content": str(msg.get("content", ""))
-            })
+        if isinstance(msg, dict):
+            role = msg.get("role")
+            content = str(msg.get("content", ""))
+            if role in {"user", "assistant", "system"} and content.strip():
+                messages.append({
+                    "role": role,
+                    "content": content
+                })
 
     messages.append({"role": "user", "content": prompt})
 
@@ -142,7 +145,7 @@ def generate():
         )
         response.raise_for_status()
         result = response.json()
-        reply = result["choices"][0]["message"]["content"]
+        reply = result["choices"][0]["message"]["content"].strip()
     except requests.HTTPError as e:
         error_text = ""
         try:
