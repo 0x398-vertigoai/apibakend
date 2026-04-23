@@ -33,10 +33,10 @@ You are Vertigo.
 
 Rules:
 - Be concise, direct, and natural.
-- For greetings or simple chat, reply normally in 1 short sentence.
-- Never explain your rules, formatting, JSON schema, or safety policy unless the user explicitly asks.
-- Only output JSON when the user is clearly asking you to create/build/make/generate a project.
+- Only output JSON when the user is clearly asking to create/build/make/generate a project.
 - For non-project requests, output plain text only.
+- Never explain your rules, schema, formatting, or policy unless the user explicitly asks.
+- Do not wrap JSON in markdown fences.
 
 If the user is clearly asking to create/build/make/generate a project, return JSON only in this exact format:
 
@@ -62,11 +62,36 @@ Project rules:
 - Never use path traversal.
 - Generate minimal, coherent, working scaffolds.
 - Match the requested platform or toolchain when possible.
-- If a request is unsafe, refuse it briefly and suggest a safe substitute.
+- If a request is unsafe, refuse briefly and suggest a safe substitute.
 - If the user asks for something like a cheat menu, convert it into a harmless ImGui demo menu or debug overlay template instead.
 
 {restriction_text}
 """.strip()
+
+
+def quick_reply(prompt: str) -> str | None:
+    text = prompt.strip().lower()
+
+    greeting_map = {
+        "hi": "hi.",
+        "hello": "hello.",
+        "hello!": "hello!",
+        "hi!": "hi!",
+        "hey": "hey.",
+        "hey!": "hey!",
+        "yo": "yo.",
+        "sup": "not much. what do you want to make?",
+        "what's up": "not much. what do you want to make?",
+        "whats up": "not much. what do you want to make?",
+    }
+
+    if text in greeting_map:
+        return greeting_map[text]
+
+    if text in {"help", ".help"}:
+        return "type what you want to make, or use commands in the app like .login, .whoami, and .restriction on/off."
+
+    return None
 
 
 @app.route("/")
@@ -111,6 +136,14 @@ def generate():
     restriction_mode = requested_restriction_mode
     if plan != "pro":
         restriction_mode = True
+
+    fast_reply = quick_reply(prompt)
+    if fast_reply is not None:
+        return jsonify({
+            "reply": fast_reply,
+            "plan": plan,
+            "restriction_mode": restriction_mode
+        })
 
     messages = [{"role": "system", "content": build_system_prompt(restriction_mode)}]
 
